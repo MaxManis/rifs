@@ -217,3 +217,18 @@ app.listen(3002, () => {
   console.log('Main server started on port 3002');
 });
 ```
+
+## Contributing
+
+We welcome contributions to **RIFS**! If you have an idea for an improvement or have found a bug, please open an issue or submit a pull request.
+
+### Steps to Contribute
+
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-branch`).
+3. Make your changes.
+4. Commit your changes (`git commit -am 'Add new feature'`).
+5. Push to the branch (`git push origin feature-branch`).
+6. Open a pull request.
+
+### Thank you for using RIFS! We hope it makes your development process easier and more efficient.
