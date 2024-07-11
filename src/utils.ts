@@ -1,3 +1,101 @@
+import { RifsUtils, ServerConfig, RifHttpRequestOptions } from './types';
+import fetch from 'node-fetch';
+
+export const rifMakeRequest = async <T>(
+  route: string,
+  port: number,
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete',
+  rifOnPort: ServerConfig,
+  options?: RifHttpRequestOptions,
+) => {
+  const { dataType, headers, body } = options || {};
+
+  if (!rifOnPort.routes[route]) {
+    throw new Error(
+      `[RIFS_ERROR] Route ${route} does not exists in Rif on port ${port}`,
+    );
+  }
+  if (rifOnPort.routes[route].method !== method) {
+    throw new Error(
+      `[RIFS_ERROR] Route ${route} does not support GET:${route} method; ${rifOnPort.routes[
+        route
+      ].method.toUpperCase()} only!`,
+    );
+  }
+  const url = `http://localhost:${rifOnPort.port}${route}`;
+  const responseObj = await fetch(url, { method, body, headers });
+  const data = await responseObj[dataType || 'json']();
+  return data as T;
+};
+
+export const getRifsUtils = (
+  configs: ServerConfig[],
+  initConfig: { statusCode: number },
+): RifsUtils => {
+  return {
+    changeStatusCode: (newStatusCode: number) =>
+      (initConfig.statusCode = newStatusCode),
+    rif(port: number) {
+      const rifOnPort = configs.find((r) => r.port === port);
+
+      if (!rifOnPort) return null;
+
+      return {
+        async get<T>(route: string, options?: RifHttpRequestOptions) {
+          const responseData = await rifMakeRequest(
+            route,
+            port,
+            'get',
+            rifOnPort,
+            options,
+          );
+          return responseData as T;
+        },
+        async post<T>(route: string, options?: RifHttpRequestOptions) {
+          const responseData = await rifMakeRequest(
+            route,
+            port,
+            'post',
+            rifOnPort,
+            options,
+          );
+          return responseData as T;
+        },
+        async put<T>(route: string, options?: RifHttpRequestOptions) {
+          const responseData = await rifMakeRequest(
+            route,
+            port,
+            'put',
+            rifOnPort,
+            options,
+          );
+          return responseData as T;
+        },
+        async patch<T>(route: string, options?: RifHttpRequestOptions) {
+          const responseData = await rifMakeRequest(
+            route,
+            port,
+            'patch',
+            rifOnPort,
+            options,
+          );
+          return responseData as T;
+        },
+        async delete<T>(route: string, options?: RifHttpRequestOptions) {
+          const responseData = await rifMakeRequest(
+            route,
+            port,
+            'delete',
+            rifOnPort,
+            options,
+          );
+          return responseData as T;
+        },
+      };
+    },
+  };
+};
+
 export const sleep = (ms: number) => {
   return new Promise((r) => setTimeout(() => r(true), ms));
 };
