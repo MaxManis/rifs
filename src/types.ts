@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import { NextFunction, Request, RequestHandler, Response } from 'express';
 
 export type RifHttpRequestOptions = {
   dataType?: 'json' | 'text' | 'blob';
@@ -17,14 +17,20 @@ export type Rif = {
   put: RifHttpRequestFunction;
   patch: RifHttpRequestFunction;
   delete: RifHttpRequestFunction;
+  getAllRoutes: () => string[];
 };
 
 export type RifsUtils = {
-  changeStatusCode: (newStatusCode: number) => void;
+  setStatusCode: (newStatusCode: number) => void;
   rif: (port: number) => Rif | null;
 };
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
+
+export type RifsMiddleware = (
+  req: Request,
+  next: NextFunction,
+) => unknown | Promise<unknown>;
 
 export type RouteConfig = {
   method: HttpMethod;
@@ -35,6 +41,8 @@ export type RouteConfig = {
   ) => unknown | Promise<unknown>;
   responseDelay?: number;
   statusCode?: number;
+  responseHeaders?: Record<string, string>;
+  middlewares?: RifsMiddleware[];
 };
 
 export type ServerRoutes = Record<string, RouteConfig>;

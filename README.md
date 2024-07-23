@@ -5,15 +5,20 @@
 
 RIFS is a lightweight and powerful tool designed to simplify local development of microservices architectures. Instead of running multiple dependent services, RIFS allows you to easily mock and virtualize them, saving you time and effort.
 
+## ⚠️ Warning: Early Access ⚠️
+
+**This NPM package is currently in early access. It may still contain bugs, undergo significant changes, and lack some features. Use it at your own risk and please provide feedback to help us improve it.**
+
 ## Features
 
 - **REST Support:** Easily mock REST services.
 - **Customizable Responses:** Define static or dynamic responses for your mock endpoints.
 - **Delay Simulation:** Simulate network latency to test your service's resilience.
+- **Middlewares Support:** RIFS fully supports Express middleware functions. Simply pass an array of your middleware functions to `RouteConfig.middlewares`.
 
 ## Installation
 
-Install RIFS via npm:
+Install RIFS:
 
 ```bash
 npm install rifs
@@ -26,9 +31,12 @@ The configuration for RIFS is an array of server configurations (`ServerConfig[]
 - `serviceName`: (Optional) A name for the mock service.
 - `port`: The port number on which the mock service will run.
 - `routes`: An object defining the routes for the mock service. Each route is defined by:
-- - `method`: The HTTP method (e.g., get, post).
-- - `response`: A function defining the response. A function is receives the request object and the response object.
+- - `method`: The HTTP method in Lower case (e.g., get, post).
+- - `response`: A function defining the response. The function receives the request object, the next function, and a utility object (rifsUtils).
 - - `responseDelay`: (Optional) Value in milliseconds, a period of time that your route need to wait before beginning of the response.
+- - `statusCode`: (Optional) The HTTP status code for the response.
+- - `responseHeaders`: (Optional) An object representing the headers for the response.
+- - `middlewares`: (Optional) An array of middleware functions to be executed before the response.
 
 ## Configuration Execution
 
@@ -37,7 +45,34 @@ const { RIFS } = require('rifs');
 // OR
 import { RIFS } from 'rifs';
 
-new RIFS(config).startMockServers();
+new RIFS(config).start();
+```
+
+## Rifs Utils:
+
+Each route response handler in RIFS receives a RifsUtils object, which provides useful functions to manipulate the response status code or to retrieve data from other RIFS instances.
+
+### Example Usage
+
+```typescript
+response: async (req, next, { rif, setStatusCode }) => {
+  const dataFromOtherRif = await rif(3030).get('/api')
+  setStatusCode(400)
+
+  return dataFromOtherRif
+},
+```
+
+### Available Functions
+
+- `setStatusCode`
+  This function allows you to change the status code of the response in runtime, if you want to send a different one from what you specified in `routeConfig.statusCode`.
+
+- `rif`
+  This function provides access to a RIFS instances running on different (or the same one) ports, enabling you to make HTTP requests to them. It returns an object with methods corresponding to different HTTP request types and other handfull functions.
+
+```typescript
+rif(port: number): Rif | null;
 ```
 
 ## Example Configuration
@@ -52,12 +87,13 @@ const config: ServerConfig[] = [
     routes: {
       '/me': {
         method: 'get',
-        response: () => ({
+        response: (req) => ({
           id: '10012',
           name: 'John Bull',
           email: 'john.bull@gmail.com',
           me: true,
           createdAt: '01-02-2021',
+          dataFromReq: req.query.data,
         }),
       },
     },
@@ -75,10 +111,12 @@ const configs = [
     routes: {
       '/send-email': {
         method: 'post',
-        response: () => ({
+        response: (req) => ({
           sent: true,
           isEmail: true,
           isSms: false,
+          user: { id: req.query.id },
+          message: req.body.msg,
           sentAt: new Date().toString(),
         }),
       },
@@ -98,23 +136,16 @@ const configs = [
           createdAt: '01-02-2024',
         }),
       },
-      '/get-user': {
+      '/send-me-email': {
         method: 'get',
-        response: async (_req, res) => {
-          const id = _req.query['id'];
+        response: async (req, _next, { rif }) => {
+          // You can send requests from one Rif to another using RifsOptions object:
+          const me = await rif(3012).get('/get-me', { dataType: 'json' });
 
-          const user = {
-            me: false,
-            name: 'Patric Shift',
-            id: '321',
-            email: 'patric.shift@gmail.com',
-            createdAt: '01-02-2010',
-          };
+          // You also can pass options to your requests like body, headers and data type.
+          await rif(3001).post(`/send-email?userId=${me.id}`, { body: { msg: 'Hello!' }, dataType: 'json' });
 
-          const meRaw = await fetch('http://localhost:3012/get-me');
-          const me = await meRaw.json();
-
-          res.send(id ? user : me);
+          res.send({ success: true });
         },
       },
     },
@@ -142,6 +173,9 @@ const config = [
     routes: {
       '/send-email': {
         method: 'post',
+        middlewares: [(req) => console.log(req.headers)],
+        responseDelay: 2000, // 2 sec
+        statusCode: 201,
         response: () => ({
           sent: true,
           isEmail: true,
@@ -157,6 +191,7 @@ const config = [
     routes: {
       '/get-me': {
         method: 'get',
+        responseHeaders: { 'X-App-Name': 'APP_NAME' },
         response: () => ({
           me: true,
           name: 'John Bull',
@@ -167,8 +202,8 @@ const config = [
       },
       '/get-user': {
         method: 'get',
-        response: async (_req, res) => {
-          const id = _req.query['id'];
+        response: async (req, _next, { rif }) => {
+          const id = req.query['id'];
 
           const user = {
             me: false,
@@ -178,10 +213,8 @@ const config = [
             createdAt: '01-02-2010',
           };
 
-          const meRaw = await fetch('http://localhost:3012/get-me');
-          const me = await meRaw.json();
-
-          res.send(id ? user : me);
+          const me = await rif(3012).get('/get-me');
+          return id ? user : me;
         },
       },
     },
@@ -198,7 +231,6 @@ app.get('/api', async (req, res) => {
 
   const thisYear = new Date().getFullYear();
   const targetYear = new Date(user.createdAt).getFullYear();
-  console.log(targetYear, thisYear);
 
   if (targetYear < thisYear) {
     const sendEmail = await fetch('http://localhost:3001/send-email', {
@@ -206,8 +238,7 @@ app.get('/api', async (req, res) => {
     });
     const email = await sendEmail.json();
 
-    res.send({ notification: email.sent });
-    return;
+    return res.send({ notification: email.sent });
   }
 
   res.send({ notification: false });

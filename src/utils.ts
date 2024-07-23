@@ -1,4 +1,4 @@
-import { RifsUtils, ServerConfig, RifHttpRequestOptions } from './types';
+import { RifsUtils, ServerConfig, RifHttpRequestOptions, Rif } from './types';
 import fetch from 'node-fetch';
 
 export const rifMakeRequest = async <T>(
@@ -33,14 +33,17 @@ export const getRifsUtils = (
   initConfig: { statusCode: number },
 ): RifsUtils => {
   return {
-    changeStatusCode: (newStatusCode: number) =>
+    setStatusCode: (newStatusCode: number) =>
       (initConfig.statusCode = newStatusCode),
-    rif(port: number) {
+    rif(port: number): Rif | null {
       const rifOnPort = configs.find((r) => r.port === port);
 
       if (!rifOnPort) return null;
 
       return {
+        getAllRoutes() {
+          return Object.keys(rifOnPort.routes);
+        },
         async get<T>(route: string, options?: RifHttpRequestOptions) {
           const responseData = await rifMakeRequest(
             route,
@@ -135,4 +138,7 @@ export const consoleColors = {
   blue: colors.FgBlue,
   green: colors.FgGreen,
   yellow: colors.FgYellow,
+  cyan: colors.FgCyan,
+  white: colors.FgWhite,
+  purple: colors.FgMagenta,
 };

@@ -7,6 +7,12 @@ const config: ServerConfig[] = [
     routes: {
       '/data': {
         method: 'post',
+        middlewares: [
+          (req, next) => {
+            console.log(req.headers);
+            next();
+          },
+        ],
         response: () => ({
           isResponse: true,
           data: { some: 123 },
@@ -22,10 +28,10 @@ const config: ServerConfig[] = [
       '/api': {
         method: 'get',
         statusCode: 201,
-        response: async (req, next, { rif, changeStatusCode }) => {
+        response: async (req, next, { rif, setStatusCode }) => {
           const data = await rif(3001)?.post('/data');
 
-          changeStatusCode(400);
+          setStatusCode(400);
 
           return {
             isResponse: true,
