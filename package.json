@@ -9,7 +9,23 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc"
   },
-  "keywords": [],
+  "keywords": [
+    "rifs",
+    "framework",
+    "microservices",
+    "web",
+    "http",
+    "rest",
+    "restful",
+    "router",
+    "app",
+    "api",
+    "testing",
+    "local",
+    "rif",
+    "async",
+    "backend"
+  ],
   "author": "Max Bovtun <maxbovtun@gmail.comB> (https://github.com/MaxManis)",
   "license": "ISC",
   "devDependencies": {
