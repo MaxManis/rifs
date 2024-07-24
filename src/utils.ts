@@ -31,8 +31,13 @@ export const rifMakeRequest = async <T>(
 export const getRifsUtils = (
   configs: ServerConfig[],
   initConfig: { statusCode: number },
+  currentServiceName?: string,
 ): RifsUtils => {
   return {
+    log: (message: string): void => {
+      const context = `[${currentServiceName}:::USER_LOG] =>`;
+      console.log(colors.FgWhite, context, message, colors.Reset);
+    },
     setStatusCode: (newStatusCode: number) =>
       (initConfig.statusCode = newStatusCode),
     rif(port: number): Rif | null {

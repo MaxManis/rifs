@@ -23,6 +23,7 @@ export type Rif = {
 export type RifsUtils = {
   setStatusCode: (newStatusCode: number) => void;
   rif: (port: number) => Rif | null;
+  log: (message: string) => void;
 };
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -34,11 +35,7 @@ export type RifsMiddleware = (
 
 export type RouteConfig = {
   method: HttpMethod;
-  response: (
-    req: Request,
-    next: NextFunction,
-    rifsUtils: RifsUtils,
-  ) => unknown | Promise<unknown>;
+  response: (req: Request, rifsUtils: RifsUtils) => unknown | Promise<unknown>;
   responseDelay?: number;
   statusCode?: number;
   responseHeaders?: Record<string, string>;

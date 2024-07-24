@@ -47,7 +47,7 @@ export class RIFS {
     this.expressServers.forEach((server: Server) => server.close());
   }
 
-  private async logServiceData(
+  private logServiceData(
     context: string,
     message: string,
     color: keyof typeof consoleColors = 'green',
@@ -64,39 +64,46 @@ export class RIFS {
   ): RequestHandler[] {
     return routeConfig.middlewares
       ? routeConfig.middlewares.map(
-          (middleware: RifsMiddleware, i: number): RequestHandler =>
-            async (req: Request, _res: Response, next: NextFunction) => {
-              const middlewareName = `${serviceName} MIDDLEWARE_#${i + 1}`;
-              const middlewareRoute = `${req.method.toUpperCase()}:${req.path.toLowerCase()}`;
-              this.logServiceData(middlewareName, middlewareRoute, 'cyan');
+        (middleware: RifsMiddleware, i: number): RequestHandler =>
+          async (req: Request, _res: Response, next: NextFunction) => {
+            const middlewareName = `${serviceName} MIDDLEWARE_#${i + 1}`;
+            const middlewareRoute = `${req.method.toUpperCase()}:${req.path.toLowerCase()}`;
+            let isNextFuncCalled = false;
+            const rifsNext: NextFunction = () => {
+              isNextFuncCalled = true;
+              return next();
+            };
+            this.logServiceData(middlewareName, middlewareRoute, 'cyan');
 
-              try {
-                const data: unknown = await middleware(req, next);
-                if (data) {
-                  this.logServiceData(
-                    middlewareName,
-                    `${middlewareRoute} => Sent Response`,
-                    'cyan',
-                  );
-                  return _res.send(data);
-                } else {
-                  this.logServiceData(
-                    middlewareName,
-                    `${middlewareRoute} => Next Handler Called`,
-                    'cyan',
-                  );
-                  next();
-                }
-              } catch (err) {
+            try {
+              const data: unknown = await middleware(req, rifsNext);
+              if (data !== undefined) {
                 this.logServiceData(
                   middlewareName,
-                  `${middlewareRoute} => ERROR: ${err}`,
-                  'red',
+                  `${middlewareRoute} => Sent Response`,
+                  'cyan',
                 );
-                return _res.status(500).send({ error: err });
+                return _res.send(data);
               }
-            },
-        )
+
+              this.logServiceData(
+                middlewareName,
+                `${middlewareRoute} => Next Handler Called`,
+                'cyan',
+              );
+              if (!isNextFuncCalled) {
+                return next();
+              }
+            } catch (err) {
+              this.logServiceData(
+                middlewareName,
+                `${middlewareRoute} => ERROR: ${err}`,
+                'red',
+              );
+              return _res.status(500).send({ error: err });
+            }
+          },
+      )
       : [];
   }
 
@@ -116,19 +123,19 @@ export class RIFS {
       const rifsUtils: RifsUtils = getRifsUtils(
         this.configs,
         routeConfigForRifsUtils,
+        serviceName,
       );
 
       const routeMainHandler: RequestHandler = async (
         req: Request,
         res: Response,
-        next: NextFunction,
+        _next: NextFunction,
       ) => {
         const startTime = new Date().getTime();
         try {
           this.logServiceData(
             serviceName,
-            `${req.method.toUpperCase()}:${req.path.toLowerCase()}${
-              req.body ? ` | Body:${req.body}` : ''
+            `${req.method.toUpperCase()}:${req.path.toLowerCase()}${req.body ? ` | Body:${req.body}` : ''
             }`,
           );
 
@@ -138,24 +145,22 @@ export class RIFS {
 
           const response =
             typeof routeConfig.response === 'function'
-              ? await routeConfig.response(req, next, rifsUtils)
+              ? await routeConfig.response(req, rifsUtils)
               : routeConfig.response;
 
           this.logServiceData(
             serviceName,
-            `${req.method.toUpperCase()}:${req.path.toLowerCase()}${
-              response
-                ? ` => ${routeConfigForRifsUtils.statusCode} ${JSON.stringify(
-                    response,
-                  )}`
-                : ''
+            `${req.method.toUpperCase()}:${req.path.toLowerCase()}${response
+              ? ` => ${routeConfigForRifsUtils.statusCode} ${JSON.stringify(
+                response,
+              )}`
+              : ` => ${routeConfigForRifsUtils.statusCode}`
             }`,
           );
           const endTime = new Date().getTime();
           this.logServiceData(
             serviceName,
-            `${req.method.toUpperCase()}:${req.path.toLowerCase()} => Response Time:${
-              endTime - startTime
+            `${req.method.toUpperCase()}:${req.path.toLowerCase()} => Response Time:${endTime - startTime
             }ms`,
             'yellow',
           );
@@ -168,15 +173,14 @@ export class RIFS {
             );
           }
 
-          response
+          return response
             ? res.send(response)
             : res.sendStatus(routeConfigForRifsUtils.statusCode);
         } catch (err) {
           const errorEndTime = new Date().getTime();
           this.logServiceData(
             serviceName,
-            `ERROR: ${req.method.toUpperCase()}:${req.path.toLowerCase()} => 500 | After:${
-              errorEndTime - startTime
+            `ERROR: ${req.method.toUpperCase()}:${req.path.toLowerCase()} => 500 | After:${errorEndTime - startTime
             }ms`,
             'red',
           );

@@ -7,7 +7,7 @@ RIFS is a lightweight and powerful tool designed to simplify local development o
 
 ## ⚠️ Warning: Early Access ⚠️
 
-**This NPM package is currently in early access. It may still contain bugs, undergo significant changes, and lack some features. Use it at your own risk and please provide feedback to help us improve it.**
+**This NPM package is currently in early access. It may still contain bugs, undergo significant changes, and lack some features. Use it at your own risk and please provide feedback to help us improve it (rifs.dev@gmail.com).**
 
 ## Features
 
@@ -32,7 +32,7 @@ The configuration for RIFS is an array of server configurations (`ServerConfig[]
 - `port`: The port number on which the mock service will run.
 - `routes`: An object defining the routes for the mock service. Each route is defined by:
 - - `method`: The HTTP method in Lower case (e.g., get, post).
-- - `response`: A function defining the response. The function receives the request object, the next function, and a utility object (rifsUtils).
+- - `response`: A function defining the response. The function receives the request object and a utility object (`rifsUtils`).
 - - `responseDelay`: (Optional) Value in milliseconds, a period of time that your route need to wait before beginning of the response.
 - - `statusCode`: (Optional) The HTTP status code for the response.
 - - `responseHeaders`: (Optional) An object representing the headers for the response.
@@ -68,11 +68,22 @@ response: async (req, next, { rif, setStatusCode }) => {
 - `setStatusCode`
   This function allows you to change the status code of the response in runtime, if you want to send a different one from what you specified in `routeConfig.statusCode`.
 
+```typescript
+setStatusCode(statusCode: number): void;
+```
+
 - `rif`
   This function provides access to a RIFS instances running on different (or the same one) ports, enabling you to make HTTP requests to them. It returns an object with methods corresponding to different HTTP request types and other handfull functions.
 
 ```typescript
 rif(port: number): Rif | null;
+```
+
+- `log`
+  This function allows you to log any messages you want in runtime.
+
+```typescript
+log('hello from rifs');
 ```
 
 ## Example Configuration
@@ -138,7 +149,7 @@ const configs = [
       },
       '/send-me-email': {
         method: 'get',
-        response: async (req, _next, { rif }) => {
+        response: async (req, { rif }) => {
           // You can send requests from one Rif to another using RifsOptions object:
           const me = await rif(3012).get('/get-me', { dataType: 'json' });
 
@@ -162,8 +173,6 @@ Here's a basic example demonstrating how to use RIFS to mock two services for lo
 ```javascript
 const express = require('express');
 const { RIFS } = require('rifs');
-
-const app = express();
 
 // RIFS configuration
 const config = [
@@ -191,6 +200,7 @@ const config = [
     routes: {
       '/get-me': {
         method: 'get',
+        middlewares: [(req, next) => next()],
         responseHeaders: { 'X-App-Name': 'APP_NAME' },
         response: () => ({
           me: true,
@@ -202,7 +212,7 @@ const config = [
       },
       '/get-user': {
         method: 'get',
-        response: async (req, _next, { rif }) => {
+        response: async (req, { rif, log }) => {
           const id = req.query['id'];
 
           const user = {
@@ -214,6 +224,9 @@ const config = [
           };
 
           const me = await rif(3012).get('/get-me');
+
+          log(me);
+
           return id ? user : me;
         },
       },
@@ -224,7 +237,8 @@ const config = [
 // Initialize RIFS mock services
 new RIFS(config).startMockServers();
 
-// Example endpoint in your main service
+// Example endpoint in your main service that integrated with other services you want to simulate:
+const app = express();
 app.get('/api', async (req, res) => {
   const userRaw = await fetch('http://localhost:3012/get-user?id=12');
   const user = await userRaw.json();

@@ -1,4 +1,5 @@
 import { RIFS, ServerConfig } from './';
+import { sleep } from './utils';
 
 const config: ServerConfig[] = [
   {
@@ -9,8 +10,7 @@ const config: ServerConfig[] = [
         method: 'post',
         middlewares: [
           (req, next) => {
-            console.log(req.headers);
-            next();
+            return req.headers;
           },
         ],
         response: () => ({
@@ -28,16 +28,17 @@ const config: ServerConfig[] = [
       '/api': {
         method: 'get',
         statusCode: 201,
-        response: async (req, next, { rif, setStatusCode }) => {
+        middlewares: [(req, next) => next()],
+        response: async (req, { rif, setStatusCode, log }) => {
           const data = await rif(3001)?.post('/data');
+          await sleep(1000);
 
-          setStatusCode(400);
+          const newCode = 202;
+          setStatusCode(newCode);
 
-          return {
-            isResponse: true,
-            data,
-            date: new Date().toISOString(),
-          };
+          log(JSON.stringify(data));
+
+          return { response: true, success: true, data };
         },
       },
     },
