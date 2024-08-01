@@ -1,4 +1,5 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
+import { RifsRedisClient } from './packages';
 
 export type RifHttpRequestOptions = {
   dataType?: 'json' | 'text' | 'blob';
@@ -24,6 +25,7 @@ export type RifsUtils = {
   setStatusCode: (newStatusCode: number) => void;
   rif: (port: number) => Rif | null;
   log: (message: string) => void;
+  rifsRedis: RifsRedisClient | null;
 };
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -46,7 +48,7 @@ export type ServerRoutes = Record<string, RouteConfig>;
 
 export type ServerConfig = {
   serviceName?: string;
-  serviceType?: 'express';
+  serviceType?: 'express' | 'redis';
   port: number;
   routes: ServerRoutes;
 };

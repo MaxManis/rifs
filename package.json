@@ -1,7 +1,7 @@
 {
   "name": "rifs",
   "package-name": "rifs",
-  "version": "0.2.19",
+  "version": "0.3.1",
   "description": "Real-time Integration and Functional Simulation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -8,6 +8,8 @@ import express, {
 import { Server } from 'http';
 import { colors, consoleColors, getRifsUtils, sleep } from './utils';
 import { RifsMiddleware, RifsUtils, RouteConfig, ServerConfig } from './types';
+import { RifsRedis, RifsRedisClient } from './packages';
+import { config as globalConfig } from './config';
 
 export class RIFS {
   private readonly configs: ServerConfig[];
@@ -16,13 +18,33 @@ export class RIFS {
   private readonly expressServers: Server[];
   private readonly expressApps: Express[];
 
+  private readonly rifsRedis: RifsRedis | null;
+
   constructor(configs: ServerConfig[]) {
     this.configs = configs;
 
     this.express = express;
     this.expressServers = [];
     this.expressApps = [];
+
+    const rifsRedis = configs.find(
+      (config) =>
+        config.serviceType === 'redis' &&
+        config.port === globalConfig.REDIS_PORT &&
+        config.routes.ROOT,
+    );
+    if (rifsRedis) {
+      this.rifsRedis = new RifsRedis(rifsRedis.port);
+    } else {
+      this.rifsRedis = null;
+    }
   }
+
+  static Redis: ServerConfig = {
+    serviceType: 'redis',
+    port: 6379,
+    routes: { ROOT: { method: 'get', response: () => null } },
+  };
 
   public start = this.startMockServers;
   public run = this.startMockServers;
@@ -35,6 +57,8 @@ export class RIFS {
         }
 
         this.runExpressService(config);
+      } else if (config.serviceType === 'redis' && this.rifsRedis) {
+        this.rifsRedis.init();
       } else {
         throw new Error(
           `<RIFS-ERROR>: Unknown serviceType: ${config.serviceType}`,
@@ -113,6 +137,10 @@ export class RIFS {
       ? config.serviceName
       : `Unknown RIF on port ${config.port}`;
 
+    const rifsRedisClient = this.rifsRedis
+      ? new RifsRedisClient(6379).init()
+      : null;
+
     Object.keys(config.routes).forEach((route: string) => {
       const routeConfig = config.routes[route];
       const initStatusCode = routeConfig.statusCode || 200;
@@ -120,11 +148,12 @@ export class RIFS {
         statusCode: initStatusCode,
       };
 
-      const rifsUtils: RifsUtils = getRifsUtils(
+      const utils: Omit<RifsUtils, 'rifsRedis'> = getRifsUtils(
         this.configs,
         routeConfigForRifsUtils,
         serviceName,
       );
+      const rifsUtils: RifsUtils = { ...utils, rifsRedis: rifsRedisClient };
 
       const routeMainHandler: RequestHandler = async (
         req: Request,
@@ -201,7 +230,7 @@ export class RIFS {
     const expressServerInstance = mockApp.listen(config.port, () => {
       this.logServiceData(
         serviceName,
-        `Mock server started on port ${config.port}`,
+        `${serviceName} started on port ${config.port}`,
         'blue',
       );
     });

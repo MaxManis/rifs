@@ -15,6 +15,7 @@ RIFS is a lightweight and powerful tool designed to simplify local development o
 - **Customizable Responses:** Define static or dynamic responses for your mock endpoints.
 - **Delay Simulation:** Simulate network latency to test your service's resilience.
 - **Middlewares Support:** RIFS fully supports Express middleware functions. Simply pass an array of your middleware functions to `RouteConfig.middlewares`.
+- **Fully Logged:** RIFS logging as much usefull information as possible, you can see what servers/services/middlewares/endpoints were called, what data was send as a response and how much time it takes. Just try!
 
 ## Installation
 
@@ -55,9 +56,10 @@ Each route response handler in RIFS receives a RifsUtils object, which provides 
 ### Example Usage
 
 ```typescript
-response: async (req, next, { rif, setStatusCode }) => {
+response: async (req, { rif, setStatusCode, log }) => {
   const dataFromOtherRif = await rif(3030).get('/api')
   setStatusCode(400)
+  log(dataFromOtherRif)
 
   return dataFromOtherRif
 },
@@ -84,6 +86,42 @@ rif(port: number): Rif | null;
 
 ```typescript
 log('hello from rifs');
+```
+
+## Rifs.Redis:
+
+Rifs allows you to use a **Redis-like** service to store data at runtime. To initialize the **RifsRedis** service, simply add `RIFS.Redis` to your configuration array as the first element. This makes it accessible in each **Rif** via `rifsRedis` from `RifsUtils`.
+
+### Initialization
+
+```typescript
+const config: ServerConfig[] = [
+  RIFS.Redis,     // <=== Init your Rifs Redis in config
+  {
+    serviceName: 'Service #1',
+    // ... other configurations
+  },
+```
+
+### RifsRedis Methods
+
+- `rifsRedis.set(key: string, value: string)`: Stores a value under the specified key.
+
+- `rifsRedis.get(key: string)`: Retrieves the value associated with the specified key.
+
+### Example Usage
+
+```typescript
+response: async (req, { rifsRedis, log }) => {
+  // Retrieve data from RifsRedis
+  const dataFromRifsRedis = await rifsRedis?.get('data_by_key')
+  setStatusCode(201)
+  // Log the retrieved data
+  log(dataFromRifsRedis)
+
+  // Return the retrieved data
+  return dataFromRifsRedis
+},
 ```
 
 ## Example Configuration

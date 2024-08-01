@@ -2,6 +2,7 @@ import { RIFS, ServerConfig } from './';
 import { sleep } from './utils';
 
 const config: ServerConfig[] = [
+  RIFS.Redis,
   {
     serviceName: 'Service #1',
     port: 3001,
@@ -10,12 +11,13 @@ const config: ServerConfig[] = [
         method: 'post',
         middlewares: [
           (req, next) => {
-            return req.headers;
+            next();
           },
         ],
         response: () => ({
-          isResponse: true,
-          data: { some: 123 },
+          id: '123-qwe-456-dfg',
+          name: 'Rifs Dev',
+          email: 'dev@test.com',
           date: new Date().toISOString(),
         }),
       },
@@ -27,18 +29,40 @@ const config: ServerConfig[] = [
     routes: {
       '/api': {
         method: 'get',
-        statusCode: 201,
+        statusCode: 200,
         middlewares: [(req, next) => next()],
-        response: async (req, { rif, setStatusCode, log }) => {
+        response: async (req, { rif, setStatusCode, log, rifsRedis }) => {
+          const rc = rifsRedis;
           const data = await rif(3001)?.post('/data');
-          await sleep(1000);
 
-          const newCode = 202;
-          setStatusCode(newCode);
+          const settied = rc?.set('key', JSON.stringify(data));
+          log('SET to RIFS_REDIS: ' + String(settied));
 
-          log(JSON.stringify(data));
+          await sleep(2000);
 
-          return { response: true, success: true, data };
+          const response = (await rif(3002)?.get('/api2')) as { data: any };
+          log(JSON.stringify(response));
+
+          const getted2 = await rc?.get(Math.random().toString());
+          log('GET_2 from RIFS_REDIS: ' + String(getted2));
+
+          setStatusCode(req.headers ? 201 : 202);
+
+          return { response: true, success: true, data: response.data };
+        },
+      },
+      '/api2': {
+        method: 'get',
+        statusCode: 200,
+        response: async (_req, { log, rifsRedis }) => {
+          const getted = await rifsRedis?.get('key');
+          log('GET from RIFS_REDIS: ' + String(getted));
+
+          return {
+            response: true,
+            success: true,
+            data: JSON.parse(getted || '{}'),
+          };
         },
       },
     },

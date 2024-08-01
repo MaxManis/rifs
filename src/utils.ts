@@ -32,7 +32,7 @@ export const getRifsUtils = (
   configs: ServerConfig[],
   initConfig: { statusCode: number },
   currentServiceName?: string,
-): RifsUtils => {
+): Omit<RifsUtils, 'rifsRedis'> => {
   return {
     log: (message: string): void => {
       const context = `[${currentServiceName}:::USER_LOG] =>`;
